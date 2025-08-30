@@ -1,0 +1,21 @@
+version: "2"
+sql:
+  - engine: "postgresql"
+    # 1. Tells sqlc where schema file is
+    schema: "database/migrations"
+    # 2. Tells sqlc where query files are
+    queries: "database/queries"
+    gen:
+      go:
+        # 3. Tells sqlc where to put the generated Go code
+        package: "db"
+        out: "database/db"
+        # Standard settings
+        sql_package: "pgx/v5"
+        emit_json_tags: true
+        overrides:
+          - db_type: "uuid"
+            go_type: "github.com/google/uuid.UUID"
+        emit_prepared_queries: false
+        emit_interface: false
+        emit_exact_table_names: false
