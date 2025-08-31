@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"encoding/json"
 	"fmt"
 	"log"
 	"math/rand"
@@ -51,6 +52,11 @@ type ResetPasswordPayload struct {
 	Email    string `json:"email"`
 	Password string `json:"password"`
 	Otp      string `json:"otp"`
+}
+
+type College struct {
+	ID   string `json:"id"`
+	Name string `json:"name"`
 }
 
 func RegisterUser(cfg *config.Config) fiber.Handler {
@@ -421,5 +427,20 @@ func GetMe(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "User not found."})
 	}
 
-	return c.JSON(userProfile)
+	var collegeObj College
+
+	json.Unmarshal(userProfile.College, &collegeObj)
+
+	return c.JSON(fiber.Map{
+		"id":              userProfile.ID,
+		"fullName":        userProfile.FullName,
+		"email":           userProfile.Email,
+		"role":            userProfile.Role,
+		"collegeId":       userProfile.CollegeId,
+		"approvalStatus":  userProfile.ApprovalStatus,
+		"isEmailVerified": userProfile.IsEmailVerified,
+		"createdAt":       userProfile.CreatedAt,
+		"college":         collegeObj,
+		"forumHeads":      userProfile.ForumHeads,
+	})
 }

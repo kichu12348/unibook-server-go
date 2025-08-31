@@ -68,40 +68,60 @@ SET
 WHERE id=$1;
 
 -- name: GetUserByID :one
-SELECT
-  u.id,
-  u.full_name AS "fullName",
-  u.email,
-  u.role,
-  u.college_id AS "collegeId",
-  u.approval_status AS "approvalStatus",
-  u.is_email_verified AS "isEmailVerified",
-  u.created_at AS "createdAt",
-
-  json_build_object(
-    'id', c.id,
-    'name', c.name
-  ) AS college,
-
-  COALESCE(
-    json_agg(
-      json_build_object(
-        'forumId', fh.forum_id,
-        'isVerified', fh.is_verified,
-        'forum', json_build_object('name', f.name)
-      )
-    ) FILTER (WHERE fh.user_id IS NOT NULL),
-    '[]'::json
-  ) AS forum_heads
-FROM
-  "users" AS u
-LEFT JOIN "colleges" AS c ON u.college_id = c.id
-LEFT JOIN "forum_heads" AS fh ON u.id = fh.user_id
-LEFT JOIN "forums" AS f ON fh.forum_id = f.id
-WHERE
-  u.id = $1
-GROUP BY
-  u.id, c.id
+SELECT 
+    "users"."id" AS "id",
+    "users"."full_name" AS "fullName",
+    "users"."email" AS "email",
+    "users"."role" AS "role",
+    "users"."college_id" AS "collegeId",
+    "users"."approval_status" AS "approvalStatus",
+    "users"."is_email_verified" AS "isEmailVerified",
+    "users"."created_at" AS "createdAt",
+    -- This is the only line that has changed
+    COALESCE("users_college"."data", 'null'::json) AS "college",
+    "users_forum_heads"."data" AS "forumHeads"
+FROM "users" "users"
+LEFT JOIN LATERAL (
+    SELECT 
+        json_build_object(
+            'id', "users_college"."id",
+            'name', "users_college"."name"
+        )::json AS "data"
+    FROM (
+        SELECT * FROM "colleges" "users_college"
+        WHERE "users_college"."id" = "users"."college_id"
+        LIMIT 1
+    ) "users_college"
+) "users_college" ON TRUE
+LEFT JOIN LATERAL (
+    SELECT 
+        COALESCE(
+            json_agg(
+                json_build_object(
+                    'forumId', "users_forum_heads"."forum_id",
+                    'isVerified', "users_forum_heads"."is_verified",
+                    'forum', "users_forum_heads_forum"."data"
+                )
+            ),
+            '[]'::json
+        ) AS "data"
+    FROM "forum_heads" "users_forum_heads"
+    
+    LEFT JOIN LATERAL (
+        SELECT 
+            json_build_object(
+                'name', "users_forum_heads_forum"."name"
+            )::json AS "data"
+        FROM (
+            SELECT * FROM "forums" "users_forum_heads_forum"
+            WHERE "users_forum_heads_forum"."id" = "users_forum_heads"."forum_id"
+            LIMIT 1
+        ) "users_forum_heads_forum"
+    ) "users_forum_heads_forum" ON TRUE
+    
+    WHERE "users_forum_heads"."user_id" = "users"."id"
+) "users_forum_heads" ON TRUE
+WHERE "users"."id" = $1
 LIMIT 1;
 
 
